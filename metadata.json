@@ -1,0 +1,5 @@
+{
+  "name": "Pixel Banana",
+  "description": "A powerful pixel art and sprite sheet generator powered by the Nano Banana (Gemini 2.5 Flash Image) engine. Create, edit, and export retro-style graphics.",
+  "requestFramePermissions": []
+}

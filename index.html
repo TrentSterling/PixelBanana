@@ -1,0 +1,74 @@
+<!DOCTYPE html>
+<html lang="en" class="dark">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Pixel Banana</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <link href="https://fonts.googleapis.com/css2?family=Press+Start+2P&family=Outfit:wght@300;400;500;600;700&display=swap" rel="stylesheet">
+    <script>
+      tailwind.config = {
+        darkMode: 'class',
+        theme: {
+          extend: {
+            fontFamily: {
+              pixel: ['"Press Start 2P"', 'cursive'],
+              sans: ['Outfit', 'sans-serif'],
+            },
+            colors: {
+              space: {
+                800: '#2d2b55',
+                900: '#1e1c38',
+                950: '#0b0a1f',
+              },
+              neon: {
+                blue: '#00f0ff',
+                pink: '#ff0099',
+                yellow: '#ffee00',
+                purple: '#bd00ff',
+                green: '#00ff9d'
+              }
+            },
+            backgroundImage: {
+              'gradient-neon': 'linear-gradient(to right, #00f0ff, #bd00ff, #ff0099)',
+            }
+          }
+        }
+      }
+    </script>
+    <style>
+      /* Custom scrollbar for a retro feel */
+      ::-webkit-scrollbar {
+        width: 6px;
+        height: 6px;
+      }
+      ::-webkit-scrollbar-track {
+        background: #0b0a1f; 
+      }
+      ::-webkit-scrollbar-thumb {
+        background: #2d2b55; 
+        border-radius: 3px;
+      }
+      ::-webkit-scrollbar-thumb:hover {
+        background: #bd00ff; 
+      }
+      .neon-text {
+        text-shadow: 0 0 5px rgba(255,255,255,0.5), 0 0 10px rgba(255,255,255,0.3);
+      }
+    </style>
+  <script type="importmap">
+{
+  "imports": {
+    "react-dom/": "https://aistudiocdn.com/react-dom@^19.2.0/",
+    "react/": "https://aistudiocdn.com/react@^19.2.0/",
+    "react": "https://aistudiocdn.com/react@^19.2.0",
+    "lucide-react": "https://aistudiocdn.com/lucide-react@^0.554.0",
+    "@google/genai": "https://aistudiocdn.com/@google/genai@^1.30.0"
+  }
+}
+</script>
+</head>
+  <body class="bg-space-950 text-white h-screen overflow-hidden selection:bg-neon-pink selection:text-white">
+    <div id="root"></div>
+  </body>
+</html>
