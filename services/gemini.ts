@@ -1,3 +1,4 @@
+
 import { GoogleGenAI } from "@google/genai";
 import { PixelStyle, OutputType, SpriteSheetConfig } from "../types";
 
@@ -15,6 +16,7 @@ export const generatePixelArt = async (
   prompt: string,
   style: PixelStyle,
   outputType: OutputType,
+  aspectRatio: string,
   sheetConfig: SpriteSheetConfig,
   referenceImage: string | null,
   generatorBackground: string
@@ -93,7 +95,7 @@ export const generatePixelArt = async (
       },
       config: {
         imageConfig: {
-          aspectRatio: "1:1", // Square usually works best for sheets/sprites
+          aspectRatio: aspectRatio, 
         }
       }
     });

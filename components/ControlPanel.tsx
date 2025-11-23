@@ -1,7 +1,7 @@
 
 import React, { useRef, useState, useEffect } from 'react';
 import { PixelConfig, PixelStyle, OutputType } from '../types';
-import { Wand2, Upload, X, Grid3X3, RefreshCcw, Monitor, Eraser, Sliders, LayoutGrid, Sparkles, ChevronDown, Check, RotateCcw, PaintBucket, BoxSelect, Ban } from 'lucide-react';
+import { Wand2, Upload, X, Grid3X3, RefreshCcw, Monitor, Eraser, Sliders, LayoutGrid, Sparkles, ChevronDown, Check, RotateCcw, PaintBucket, BoxSelect, Ban, Ratio } from 'lucide-react';
 import { PALETTES } from '../constants';
 
 interface ControlPanelProps {
@@ -45,6 +45,14 @@ const STYLE_DESCRIPTIONS: Record<PixelStyle, string> = {
     [PixelStyle.POINTNCLICK]: "90s adventure game background style",
 };
 
+const ASPECT_RATIOS = [
+  { value: "1:1", label: "Square (1:1)" },
+  { value: "16:9", label: "Landscape (16:9)" },
+  { value: "9:16", label: "Portrait (9:16)" },
+  { value: "4:3", label: "Classic (4:3)" },
+  { value: "3:4", label: "Vertical (3:4)" },
+];
+
 const BG_COLORS = [
     { label: 'Magenta', color: '#FF00FF' },
     { label: 'Cyan', color: '#00FFFF' },
@@ -68,6 +76,7 @@ const ControlPanel: React.FC<ControlPanelProps> = ({
   // Dropdown States
   const [isStyleOpen, setIsStyleOpen] = useState(false);
   const [isTypeOpen, setIsTypeOpen] = useState(false);
+  const [isRatioOpen, setIsRatioOpen] = useState(false);
   const [isPaletteOpen, setIsPaletteOpen] = useState(false);
   
   // Toggles
@@ -76,12 +85,14 @@ const ControlPanel: React.FC<ControlPanelProps> = ({
 
   const styleRef = useRef<HTMLDivElement>(null);
   const typeRef = useRef<HTMLDivElement>(null);
+  const ratioRef = useRef<HTMLDivElement>(null);
   const paletteRef = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
       const handleClickOutside = (event: MouseEvent) => {
           if (styleRef.current && !styleRef.current.contains(event.target as Node)) setIsStyleOpen(false);
           if (typeRef.current && !typeRef.current.contains(event.target as Node)) setIsTypeOpen(false);
+          if (ratioRef.current && !ratioRef.current.contains(event.target as Node)) setIsRatioOpen(false);
           if (paletteRef.current && !paletteRef.current.contains(event.target as Node)) setIsPaletteOpen(false);
       };
       document.addEventListener('mousedown', handleClickOutside);
@@ -278,29 +289,62 @@ const ControlPanel: React.FC<ControlPanelProps> = ({
                   )}
               </div>
 
-              {/* Custom Type Dropdown */}
-              <div className="relative" ref={typeRef}>
-                  <button 
-                    onClick={() => setIsTypeOpen(!isTypeOpen)}
-                    className={`w-full bg-[#0d0c1d] border ${isTypeOpen ? 'border-neon-purple shadow-[0_0_15px_rgba(189,0,255,0.3)]' : 'border-[#1f1d35]'} rounded-lg p-3 flex items-center justify-between text-xs text-white transition-all hover:border-gray-600`}
-                  >
-                      <span className="font-bold">{config.outputType}</span>
-                      <ChevronDown className={`w-4 h-4 text-gray-500 transition-transform ${isTypeOpen ? 'rotate-180' : ''}`} />
-                  </button>
+              <div className="grid grid-cols-2 gap-2">
+                {/* Custom Type Dropdown */}
+                <div className="relative" ref={typeRef}>
+                    <button 
+                        onClick={() => setIsTypeOpen(!isTypeOpen)}
+                        className={`w-full bg-[#0d0c1d] border ${isTypeOpen ? 'border-neon-purple shadow-[0_0_15px_rgba(189,0,255,0.3)]' : 'border-[#1f1d35]'} rounded-lg p-3 flex items-center justify-between text-xs text-white transition-all hover:border-gray-600`}
+                    >
+                        <span className="font-bold truncate">{config.outputType}</span>
+                        <ChevronDown className={`w-4 h-4 text-gray-500 transition-transform ${isTypeOpen ? 'rotate-180' : ''}`} />
+                    </button>
 
-                  {isTypeOpen && (
-                      <div className="absolute top-full left-0 w-full mt-2 bg-[#0d0c1d] border border-[#1f1d35] rounded-lg shadow-2xl z-50 max-h-64 overflow-y-auto scrollbar-thin">
-                          {Object.values(OutputType).map(type => (
-                              <button
-                                key={type}
-                                onClick={() => { setConfig({ ...config, outputType: type }); setIsTypeOpen(false); }}
-                                className="w-full text-left px-4 py-3 hover:bg-[#18162d] border-b border-[#1f1d35] last:border-0 text-xs font-bold text-white transition-colors"
-                              >
-                                  {type}
-                              </button>
-                          ))}
-                      </div>
-                  )}
+                    {isTypeOpen && (
+                        <div className="absolute top-full left-0 w-full mt-2 bg-[#0d0c1d] border border-[#1f1d35] rounded-lg shadow-2xl z-50 max-h-64 overflow-y-auto scrollbar-thin">
+                            {Object.values(OutputType).map(type => (
+                                <button
+                                    key={type}
+                                    onClick={() => { 
+                                        let newRatio = config.aspectRatio;
+                                        if (type === OutputType.SCENE) newRatio = "16:9";
+                                        if (type === OutputType.PORTRAIT) newRatio = "3:4";
+                                        setConfig({ ...config, outputType: type, aspectRatio: newRatio }); 
+                                        setIsTypeOpen(false); 
+                                    }}
+                                    className="w-full text-left px-4 py-3 hover:bg-[#18162d] border-b border-[#1f1d35] last:border-0 text-xs font-bold text-white transition-colors"
+                                >
+                                    {type}
+                                </button>
+                            ))}
+                        </div>
+                    )}
+                </div>
+
+                {/* Aspect Ratio Dropdown */}
+                <div className="relative" ref={ratioRef}>
+                    <button 
+                        onClick={() => setIsRatioOpen(!isRatioOpen)}
+                        className={`w-full bg-[#0d0c1d] border ${isRatioOpen ? 'border-neon-purple shadow-[0_0_15px_rgba(189,0,255,0.3)]' : 'border-[#1f1d35]'} rounded-lg p-3 flex items-center justify-between text-xs text-white transition-all hover:border-gray-600`}
+                    >
+                        <span className="font-bold">{ASPECT_RATIOS.find(r => r.value === config.aspectRatio)?.label || config.aspectRatio}</span>
+                        <ChevronDown className={`w-4 h-4 text-gray-500 transition-transform ${isRatioOpen ? 'rotate-180' : ''}`} />
+                    </button>
+
+                    {isRatioOpen && (
+                        <div className="absolute top-full left-0 w-full mt-2 bg-[#0d0c1d] border border-[#1f1d35] rounded-lg shadow-2xl z-50 max-h-64 overflow-y-auto scrollbar-thin">
+                            {ASPECT_RATIOS.map(ratio => (
+                                <button
+                                    key={ratio.value}
+                                    onClick={() => { setConfig({ ...config, aspectRatio: ratio.value }); setIsRatioOpen(false); }}
+                                    className="w-full text-left px-4 py-3 hover:bg-[#18162d] border-b border-[#1f1d35] last:border-0 text-xs font-bold text-white transition-colors"
+                                >
+                                    {ratio.label}
+                                </button>
+                            ))}
+                        </div>
+                    )}
+                </div>
               </div>
             </div>
 

@@ -11,6 +11,7 @@ const App: React.FC = () => {
     prompt: '',
     style: PixelStyle.SNES,
     outputType: OutputType.SINGLE,
+    aspectRatio: '1:1',
     referenceImage: null,
     generatorBackground: '#FF00FF', // Magenta default for classic sprite transparency
     sheetConfig: {
@@ -63,6 +64,7 @@ const App: React.FC = () => {
         config.prompt,
         config.style,
         config.outputType,
+        config.aspectRatio,
         config.sheetConfig,
         config.referenceImage,
         config.generatorBackground
