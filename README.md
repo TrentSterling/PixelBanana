@@ -3,6 +3,8 @@
 
 **The Ultimate AI Pixel Art Generator & Sprite Sheet Editor**
 
+View the app in AI Studio: https://ai.studio/apps/drive/1_0pz-J5D75sqi7hDY67irTmU4TQzNFFg
+
 Pixel Banana is a powerful web application that leverages Google's **Gemini 2.5 Flash** model to generate high-quality pixel art, seamless tiles, and sprite sheets. It features a robust post-processing engine for palette quantization, chroma keying, and animation previewing.
 
 ![Pixel Banana](https://img.shields.io/badge/Pixel-Banana-yellow?style=for-the-badge)
