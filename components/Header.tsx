@@ -1,22 +1,80 @@
-import React from 'react';
-import { Zap } from 'lucide-react';
 
-const Header: React.FC = () => {
+import React, { useState, useRef, useEffect } from 'react';
+import { Palette, Moon, Sun, Terminal, Sparkles, ChevronDown, Zap, Coffee } from 'lucide-react';
+import { Theme } from '../types';
+
+interface HeaderProps {
+  theme: Theme;
+  setTheme: (t: Theme) => void;
+}
+
+const THEMES: { id: Theme; label: string; icon: React.ElementType }[] = [
+  { id: 'cosmic', label: 'Cosmic', icon: Sparkles },
+  { id: 'midnight', label: 'Midnight', icon: Moon },
+  { id: 'paper', label: 'Paper', icon: Sun },
+  { id: 'terminal', label: 'Terminal', icon: Terminal },
+  { id: 'synthwave', label: 'Synthwave', icon: Zap },
+  { id: 'retro', label: 'Retro', icon: Coffee },
+];
+
+const Header: React.FC<HeaderProps> = ({ theme, setTheme }) => {
+  const [isThemeOpen, setIsThemeOpen] = useState(false);
+  const dropdownRef = useRef<HTMLDivElement>(null);
+
+  useEffect(() => {
+    const handleClickOutside = (event: MouseEvent) => {
+      if (dropdownRef.current && !dropdownRef.current.contains(event.target as Node)) {
+        setIsThemeOpen(false);
+      }
+    };
+    document.addEventListener('mousedown', handleClickOutside);
+    return () => document.removeEventListener('mousedown', handleClickOutside);
+  }, []);
+
   return (
-    <header className="border-b border-space-800 bg-space-950 sticky top-0 z-50 h-14 flex items-center justify-between px-4 select-none shadow-[0_0_15px_rgba(0,240,255,0.1)]">
+    <header className="border-b border-border-base bg-app-panel sticky top-0 z-50 h-14 flex items-center justify-between px-4 select-none transition-colors duration-300 shadow-md">
       <div className="flex items-center gap-3 group cursor-default">
-        <div className="w-8 h-8 bg-gradient-to-br from-neon-yellow to-neon-green rounded-lg flex items-center justify-center text-xl shadow-[0_0_10px_rgba(255,238,0,0.5)] group-hover:shadow-[0_0_20px_rgba(255,238,0,0.8)] transition-all duration-300">
+        <div className="w-8 h-8 bg-accent-main rounded-lg flex items-center justify-center text-xl shadow-[0_0_10px_rgba(var(--accent-main),0.5)] transition-all duration-300 text-accent-text">
            🍌
         </div>
-        <h1 className="text-xl font-pixel text-white tracking-tighter drop-shadow-md">
-          PIXEL<span className="text-transparent bg-clip-text bg-gradient-to-r from-neon-yellow to-neon-green">BANANA</span>
+        <h1 className="text-xl font-pixel text-txt-main tracking-tighter">
+          PIXEL<span className="text-accent-main">BANANA</span>
         </h1>
       </div>
       
       <div className="flex items-center gap-4">
-          <div className="flex items-center gap-2 px-3 py-1 rounded-full bg-space-900 border border-space-800 text-[10px] font-mono text-neon-blue shadow-[0_0_5px_rgba(0,240,255,0.2)]">
-              <div className="w-1.5 h-1.5 rounded-full bg-neon-blue animate-pulse shadow-[0_0_5px_#00f0ff]"/>
+          <div className="flex items-center gap-2 px-3 py-1 rounded-full bg-app-element border border-border-base text-[10px] font-mono text-txt-muted hidden md:flex">
+              <div className="w-1.5 h-1.5 rounded-full bg-accent-main animate-pulse"/>
               <span>GEMINI 2.5 FLASH IMAGE</span>
+          </div>
+
+          {/* Theme Dropdown */}
+          <div className="relative" ref={dropdownRef}>
+            <button 
+              onClick={() => setIsThemeOpen(!isThemeOpen)}
+              className="flex items-center gap-2 px-3 py-1.5 rounded-md bg-app-element border border-border-base text-xs font-bold text-txt-muted hover:text-txt-main hover:border-accent-main transition-all"
+            >
+              <Palette className="w-4 h-4" />
+              <span className="capitalize hidden md:inline">{theme}</span>
+              <ChevronDown className="w-3 h-3" />
+            </button>
+
+            {isThemeOpen && (
+              <div className="absolute top-full right-0 mt-2 w-36 bg-app-panel border border-border-base rounded-lg shadow-xl z-50 overflow-hidden">
+                {THEMES.map((t) => (
+                  <button
+                    key={t.id}
+                    onClick={() => { setTheme(t.id); setIsThemeOpen(false); }}
+                    className={`w-full flex items-center gap-2 px-3 py-2 text-xs font-medium transition-colors
+                      ${theme === t.id ? 'bg-accent-main text-accent-text' : 'text-txt-muted hover:bg-app-element hover:text-txt-main'}
+                    `}
+                  >
+                    <t.icon className="w-3 h-3" />
+                    {t.label}
+                  </button>
+                ))}
+              </div>
+            )}
           </div>
       </div>
     </header>

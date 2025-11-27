@@ -1,5 +1,6 @@
+
 <!DOCTYPE html>
-<html lang="en" class="dark">
+<html lang="en">
   <head>
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
@@ -16,44 +17,163 @@
               sans: ['Outfit', 'sans-serif'],
             },
             colors: {
-              space: {
-                800: '#2d2b55',
-                900: '#1e1c38',
-                950: '#0b0a1f',
+              // Semantic Colors mapped to CSS Variables
+              app: {
+                bg: 'var(--bg-app)',
+                panel: 'var(--bg-panel)',
+                element: 'var(--bg-element)',
+                hover: 'var(--bg-hover)',
               },
-              neon: {
-                blue: '#00f0ff',
-                pink: '#ff0099',
-                yellow: '#ffee00',
-                purple: '#bd00ff',
-                green: '#00ff9d'
+              border: {
+                base: 'var(--border-base)',
+                highlight: 'var(--border-highlight)',
+              },
+              txt: {
+                main: 'var(--text-main)',
+                muted: 'var(--text-muted)',
+                dim: 'var(--text-dim)',
+                inverted: 'var(--text-inverted)',
+              },
+              accent: {
+                main: 'var(--accent-main)',
+                hover: 'var(--accent-hover)',
+                text: 'var(--accent-text)',
               }
             },
-            backgroundImage: {
-              'gradient-neon': 'linear-gradient(to right, #00f0ff, #bd00ff, #ff0099)',
+            animation: {
+              'spin-slow': 'spin 3s linear infinite',
             }
           }
         }
       }
     </script>
     <style>
-      /* Custom scrollbar for a retro feel */
+      /* Base Variables & Themes */
+      :root {
+        /* Default: COSMIC (Deep Purple/Dark) */
+        --bg-app: #020203;
+        --bg-panel: #0a0a0f;
+        --bg-element: #18181b;
+        --bg-hover: #27272a;
+        --border-base: #27272a;
+        --border-highlight: #bd00ff;
+        --text-main: #e4e4e7;
+        --text-muted: #a1a1aa;
+        --text-dim: #52525b;
+        --text-inverted: #000000;
+        --accent-main: #facc15; /* Neon Yellow */
+        --accent-hover: #fef08a;
+        --accent-text: #000000;
+      }
+
+      [data-theme='midnight'] {
+        /* Midnight (Blue Grey/High Contrast) */
+        --bg-app: #0f172a;
+        --bg-panel: #1e293b;
+        --bg-element: #334155;
+        --bg-hover: #475569;
+        --border-base: #475569;
+        --border-highlight: #38bdf8;
+        --text-main: #f8fafc;
+        --text-muted: #cbd5e1;
+        --text-dim: #64748b;
+        --text-inverted: #0f172a;
+        --accent-main: #38bdf8; /* Sky Blue */
+        --accent-hover: #7dd3fc;
+        --accent-text: #0f172a;
+      }
+
+      [data-theme='paper'] {
+        /* Paper (Light Mode) */
+        --bg-app: #f3f4f6;
+        --bg-panel: #ffffff;
+        --bg-element: #f9fafb;
+        --bg-hover: #e5e7eb;
+        --border-base: #d1d5db;
+        --border-highlight: #4f46e5;
+        --text-main: #111827;
+        --text-muted: #4b5563;
+        --text-dim: #9ca3af;
+        --text-inverted: #ffffff;
+        --accent-main: #4f46e5; /* Indigo */
+        --accent-hover: #6366f1;
+        --accent-text: #ffffff;
+      }
+
+      [data-theme='terminal'] {
+        /* Terminal (Black/Green) */
+        --bg-app: #000000;
+        --bg-panel: #111111;
+        --bg-element: #222222;
+        --bg-hover: #333333;
+        --border-base: #333333;
+        --border-highlight: #22c55e;
+        --text-main: #eeeeee;
+        --text-muted: #aaaaaa;
+        --text-dim: #666666;
+        --text-inverted: #000000;
+        --accent-main: #22c55e; /* Matrix Green */
+        --accent-hover: #4ade80;
+        --accent-text: #000000;
+      }
+
+      [data-theme='synthwave'] {
+        /* Synthwave (Neon Pink/Purple) */
+        --bg-app: #18002e;
+        --bg-panel: #240046;
+        --bg-element: #3c096c;
+        --bg-hover: #5a189a;
+        --border-base: #5a189a;
+        --border-highlight: #ff00ff;
+        --text-main: #e0aaff;
+        --text-muted: #c77dff;
+        --text-dim: #9d4edd;
+        --text-inverted: #10002b;
+        --accent-main: #ff00ff; /* Neon Magenta */
+        --accent-hover: #e0aaff;
+        --accent-text: #ffffff;
+      }
+
+      [data-theme='retro'] {
+        /* Retro (Beige/Orange) */
+        --bg-app: #f0e6d2;
+        --bg-panel: #e6dbbf;
+        --bg-element: #d4c5a3;
+        --bg-hover: #c2b28f;
+        --border-base: #a8997a;
+        --border-highlight: #ea580c;
+        --text-main: #433422;
+        --text-muted: #5c4d3c;
+        --text-dim: #786a58;
+        --text-inverted: #f0e6d2;
+        --accent-main: #ea580c; /* Burnt Orange */
+        --accent-hover: #fb923c;
+        --accent-text: #ffffff;
+      }
+
+      /* Custom scrollbar */
       ::-webkit-scrollbar {
         width: 6px;
         height: 6px;
       }
       ::-webkit-scrollbar-track {
-        background: #0b0a1f; 
+        background: var(--bg-app); 
       }
       ::-webkit-scrollbar-thumb {
-        background: #2d2b55; 
+        background: var(--bg-element); 
         border-radius: 3px;
       }
       ::-webkit-scrollbar-thumb:hover {
-        background: #bd00ff; 
+        background: var(--border-base); 
       }
-      .neon-text {
-        text-shadow: 0 0 5px rgba(255,255,255,0.5), 0 0 10px rgba(255,255,255,0.3);
+      
+      .checkerboard {
+        background-image: linear-gradient(45deg, rgba(128,128,128,0.1) 25%, transparent 25%),
+          linear-gradient(-45deg, rgba(128,128,128,0.1) 25%, transparent 25%),
+          linear-gradient(45deg, transparent 75%, rgba(128,128,128,0.1) 75%),
+          linear-gradient(-45deg, transparent 75%, rgba(128,128,128,0.1) 75%);
+        background-size: 20px 20px;
+        background-position: 0 0, 0 10px, 10px -10px, -10px 0px;
       }
     </style>
   <script type="importmap">
@@ -68,7 +188,7 @@
 }
 </script>
 </head>
-  <body class="bg-space-950 text-white h-screen overflow-hidden selection:bg-neon-pink selection:text-white">
+  <body class="bg-app-bg text-txt-main h-screen overflow-hidden selection:bg-accent-main selection:text-accent-text transition-colors duration-300">
     <div id="root"></div>
   </body>
 </html>

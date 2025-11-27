@@ -5,6 +5,8 @@ export interface GenerationState {
   error: string | null;
 }
 
+export type Theme = 'cosmic' | 'midnight' | 'paper' | 'terminal' | 'synthwave' | 'retro';
+
 export enum PixelStyle {
   SNES = 'SNES (16-bit)',
   SEGA = 'Sega Genesis',
@@ -48,7 +50,10 @@ export interface PostProcessConfig {
   gridSize: number; // Size of grid cells in "art pixels" (e.g. 32 for 32x32 tiles)
   gridOpacity: number; // 0.1 to 1.0
   gridColor: string;
+  
+  // Chroma Key
   removeBackground: boolean;
+  contiguous: boolean; // Smart flood fill vs global replace
   transparentColor: string; // Hex color to remove
   transparencyTolerance: number; // 0-100
   
@@ -56,6 +61,7 @@ export interface PostProcessConfig {
   outlineOuter: boolean;
   outlineOuterColor: string;
   outlineOuterWidth: number; // 1-4 pixels
+  outlineMode: 'outer' | 'inner' | 'both'; // deprecated but kept for types compatibility
 
   // Inner Outline
   outlineInner: boolean;

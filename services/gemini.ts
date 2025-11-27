@@ -29,6 +29,12 @@ export const generatePixelArt = async (
   Style: ${style}.
   Type: ${outputType}.
   
+  CRITICAL DIMENSION INSTRUCTIONS:
+  - The subject MUST FILL the entire canvas.
+  - MINIMAL padding. CROP TIGHTLY to the subject.
+  - The subject should occupy at least 90% of the image dimensions.
+  - Do not leave large empty areas around the subject.
+  
   Important Guidelines:
   - Ensure crisp edges and distinct pixels appropriate for the requested bit-depth.
   - Do not add anti-aliasing or blur.
@@ -50,15 +56,21 @@ export const generatePixelArt = async (
   } else if (outputType === OutputType.TILE) {
     fullPrompt += `
     - Create a seamless repeating pattern or texture.
-    - THE TEXTURE MUST FILL THE ENTIRE IMAGE CANVAS. NO BACKGROUND COLOR.
+    - THE TEXTURE MUST FILL THE ENTIRE IMAGE CANVAS 100%.
+    - NO MARGINS. NO BACKGROUND COLOR.
     - Ensure the edges match perfectly when tiled.
     - Flat, top-down perspective suitable for map tiles.
     `;
   } else if (outputType === OutputType.ICON) {
     fullPrompt += `
     - Create a single, centered item icon.
-    - Maximize the usage of the canvas.
+    - MAXIMIZE the usage of the canvas. The item should touch the edges.
     - High readability at small sizes.
+    `;
+  } else if (outputType === OutputType.SINGLE) {
+    fullPrompt += `
+    - Single character or object.
+    - ZOOM IN. The subject should be as large as possible within the frame.
     `;
   }
 

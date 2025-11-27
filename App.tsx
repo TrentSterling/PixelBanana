@@ -3,10 +3,14 @@ import React, { useState, useCallback } from 'react';
 import Header from './components/Header';
 import ControlPanel from './components/ControlPanel';
 import PreviewArea from './components/PreviewArea';
-import { GenerationState, PixelConfig, PixelStyle, OutputType } from './types';
+import { GenerationState, PixelConfig, PixelStyle, OutputType, Theme } from './types';
 import { generatePixelArt } from './services/gemini';
 
 const App: React.FC = () => {
+  const [theme, setTheme] = useState<Theme>('midnight');
+  const [previewBackgroundColor, setPreviewBackgroundColor] = useState<string>('transparent');
+  const [analyzedPalette, setAnalyzedPalette] = useState<string[]>([]);
+
   const [config, setConfig] = useState<PixelConfig>({
     prompt: '',
     style: PixelStyle.SNES,
@@ -33,16 +37,17 @@ const App: React.FC = () => {
       gridOpacity: 0.5,
       gridColor: '#00f0ff',
       removeBackground: false,
+      contiguous: true, // Smart removal on by default
       transparentColor: '#FF00FF', 
       transparencyTolerance: 10,
       
-      // New Outline Config
       outlineOuter: false,
       outlineOuterColor: '#FFFFFF',
       outlineOuterWidth: 1,
       outlineInner: false,
       outlineInnerColor: '#000000',
       outlineInnerWidth: 1,
+      outlineMode: 'both'
     }
   });
 
@@ -85,12 +90,12 @@ const App: React.FC = () => {
   }, [config]);
 
   return (
-    <div className="flex flex-col h-screen bg-[#050410] text-white overflow-hidden font-sans">
-      <Header />
+    <div className="flex flex-col h-screen bg-app-bg text-txt-main overflow-hidden font-sans transition-colors duration-300" data-theme={theme}>
+      <Header theme={theme} setTheme={setTheme} />
       
       <main className="flex-1 flex flex-col md:flex-row overflow-hidden relative">
         {/* Left Panel: Controls */}
-        <div className="w-full md:w-[380px] z-20 flex-shrink-0 bg-[#080715] h-full overflow-hidden shadow-[10px_0_30px_rgba(0,0,0,0.8)] border-r border-[#1f1d35]">
+        <div className="w-full md:w-[380px] z-20 flex-shrink-0 bg-app-panel h-full overflow-hidden shadow-xl border-r border-border-base transition-colors duration-300">
           <ControlPanel
             config={config}
             setConfig={setConfig}
@@ -98,15 +103,20 @@ const App: React.FC = () => {
             isGenerating={generationState.isLoading}
             lastGeneratedImage={generationState.resultImage}
             imageDimensions={currentDimensions}
+            previewBackgroundColor={previewBackgroundColor}
+            setPreviewBackgroundColor={setPreviewBackgroundColor}
+            analyzedPalette={analyzedPalette}
           />
         </div>
 
         {/* Right Panel: Preview */}
-        <div className="flex-1 overflow-hidden bg-[#020205] relative z-10">
+        <div className="flex-1 overflow-hidden bg-app-bg relative z-10 transition-colors duration-300">
           <PreviewArea 
             state={generationState} 
             config={config} 
             onDimensionsChange={setCurrentDimensions}
+            previewBackgroundColor={previewBackgroundColor}
+            setAnalyzedPalette={setAnalyzedPalette}
           />
         </div>
       </main>

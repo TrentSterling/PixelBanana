@@ -1,6 +1,6 @@
 
 import React, { useEffect, useRef, useState, useLayoutEffect } from 'react';
-import { Download, Grid } from 'lucide-react';
+import { Download, Grid, Move, ZoomIn } from 'lucide-react';
 import { GenerationState, PixelConfig } from '../types';
 import { PALETTES } from '../constants';
 
@@ -8,6 +8,8 @@ interface PreviewAreaProps {
   state: GenerationState;
   config: PixelConfig;
   onDimensionsChange?: (dims: {w: number, h: number}) => void;
+  previewBackgroundColor: string;
+  setAnalyzedPalette: (colors: string[]) => void;
 }
 
 const getNearestColor = (r: number, g: number, b: number, palette: number[][]) => {
@@ -33,12 +35,57 @@ const hexToRgb = (hex: string) => {
     } : null;
 }
 
-const PreviewArea: React.FC<PreviewAreaProps> = ({ state, config, onDimensionsChange }) => {
+// --- K-Means Clustering for Accurate Color Quantization ---
+const quantizeColors = (imageData: Uint8ClampedArray, k: number): number[][] => {
+    const pixels: number[][] = [];
+    for (let i = 0; i < imageData.length; i += 4) {
+        if (imageData[i + 3] > 128) { // Only opaque pixels
+            pixels.push([imageData[i], imageData[i + 1], imageData[i + 2]]);
+        }
+    }
+
+    if (pixels.length === 0) return [];
+    if (pixels.length <= k) return pixels;
+
+    // Initialize centroids randomly
+    let centroids = Array.from({ length: k }, () => pixels[Math.floor(Math.random() * pixels.length)]);
+    
+    // 5 Iterations usually enough for pixel art preview
+    for (let iter = 0; iter < 5; iter++) {
+        const clusters: number[][][] = Array.from({ length: k }, () => []);
+        
+        // Assign pixels to nearest centroid
+        for (const p of pixels) {
+            let minDist = Infinity;
+            let clusterIdx = 0;
+            for (let i = 0; i < k; i++) {
+                const d = Math.pow(p[0] - centroids[i][0], 2) + Math.pow(p[1] - centroids[i][1], 2) + Math.pow(p[2] - centroids[i][2], 2);
+                if (d < minDist) {
+                    minDist = d;
+                    clusterIdx = i;
+                }
+            }
+            clusters[clusterIdx].push(p);
+        }
+
+        // Recalculate centroids
+        centroids = clusters.map(cluster => {
+            if (cluster.length === 0) return [Math.random()*255, Math.random()*255, Math.random()*255];
+            const sum = cluster.reduce((acc, val) => [acc[0]+val[0], acc[1]+val[1], acc[2]+val[2]], [0,0,0]);
+            return [Math.round(sum[0]/cluster.length), Math.round(sum[1]/cluster.length), Math.round(sum[2]/cluster.length)];
+        });
+    }
+    
+    return centroids;
+};
+
+
+const PreviewArea: React.FC<PreviewAreaProps> = ({ state, config, onDimensionsChange, previewBackgroundColor, setAnalyzedPalette }) => {
   const { isLoading, resultImage, error } = state;
   const { 
       pixelSize, brightness, contrast, saturation, hue, noise, reduceColors, palette, 
       showGrid, gridSize, gridOpacity, gridColor, 
-      removeBackground, transparentColor, transparencyTolerance, 
+      removeBackground, transparentColor, transparencyTolerance, contiguous,
       outlineOuter, outlineOuterColor, outlineOuterWidth,
       outlineInner, outlineInnerColor, outlineInnerWidth
   } = config.postProcess;
@@ -52,6 +99,11 @@ const PreviewArea: React.FC<PreviewAreaProps> = ({ state, config, onDimensionsCh
   const [imageDimensions, setImageDimensions] = useState<{w: number, h: number}>({ w: 0, h: 0 });
   const [wrapperStyle, setWrapperStyle] = useState<{width: number, height: number}>({ width: 0, height: 0 });
 
+  // Viewport State
+  const [transform, setTransform] = useState({ x: 0, y: 0, scale: 1 });
+  const [isDragging, setIsDragging] = useState(false);
+  const lastMouseRef = useRef<{ x: number, y: number } | null>(null);
+
   useEffect(() => {
     if (onDimensionsChange && resultImage && imageDimensions.w === 0) {
          const img = new Image();
@@ -60,7 +112,41 @@ const PreviewArea: React.FC<PreviewAreaProps> = ({ state, config, onDimensionsCh
     }
   }, [resultImage, onDimensionsChange, imageDimensions.w]);
 
-  // --- Image Processing Effect ---
+  // Reset Transform on new Image
+  useEffect(() => {
+      setTransform({ x: 0, y: 0, scale: 1 });
+  }, [resultImage]);
+
+  // --- Pan & Zoom Logic ---
+  const handleWheel = (e: React.WheelEvent) => {
+      e.preventDefault();
+      const scaleAmount = -e.deltaY * 0.001;
+      const newScale = Math.min(Math.max(0.1, transform.scale + scaleAmount * transform.scale), 20);
+      
+      setTransform(prev => ({ ...prev, scale: newScale }));
+  };
+
+  const handleMouseDown = (e: React.MouseEvent) => {
+      if (!resultImage) return;
+      setIsDragging(true);
+      lastMouseRef.current = { x: e.clientX, y: e.clientY };
+  };
+
+  const handleMouseMove = (e: React.MouseEvent) => {
+      if (!isDragging || !lastMouseRef.current) return;
+      const dx = e.clientX - lastMouseRef.current.x;
+      const dy = e.clientY - lastMouseRef.current.y;
+      
+      setTransform(prev => ({ ...prev, x: prev.x + dx, y: prev.y + dy }));
+      lastMouseRef.current = { x: e.clientX, y: e.clientY };
+  };
+
+  const handleMouseUp = () => {
+      setIsDragging(false);
+      lastMouseRef.current = null;
+  };
+
+  // --- Image Processing Pipeline ---
   useEffect(() => {
     if (!resultImage || !canvasRef.current) return;
 
@@ -73,6 +159,7 @@ const PreviewArea: React.FC<PreviewAreaProps> = ({ state, config, onDimensionsCh
       const ctx = canvas.getContext('2d', { willReadFrequently: true });
       if (!ctx) return;
 
+      // 1. SCALE DOWN
       const w = Math.max(1, Math.floor(img.width / pixelSize));
       const h = Math.max(1, Math.floor(img.height / pixelSize));
 
@@ -82,56 +169,85 @@ const PreviewArea: React.FC<PreviewAreaProps> = ({ state, config, onDimensionsCh
 
       ctx.imageSmoothingEnabled = false;
 
-      // 1. Basic CSS Filters
+      // 2. APPLY BASIC FILTERS (Brightness, Contrast, Saturation, Hue)
       let filterString = `brightness(${100 + brightness}%) contrast(${100 + contrast}%) saturate(${100 + saturation}%) hue-rotate(${hue}deg)`;
       ctx.filter = filterString;
       ctx.drawImage(img, 0, 0, w, h);
       ctx.filter = 'none'; 
 
-      // 2. Pixel Manipulation
+      // Get Raw Pixel Data
       const imageData = ctx.getImageData(0, 0, w, h);
       const data = imageData.data;
 
       const targetRGB = hexToRgb(transparentColor);
       const toleranceDistSq = Math.pow((transparencyTolerance / 100) * 442, 2);
       
-      // PASS 1: Noise & Transparency
-      for (let i = 0; i < data.length; i += 4) {
-        let r = data[i];
-        let g = data[i+1];
-        let b = data[i+2];
+      // 3. CHROMA KEY (Transparency)
+      if (removeBackground && targetRGB) {
+          if (contiguous) {
+              const visited = new Uint8Array(w * h);
+              const queue: number[] = [];
+              const corners = [0, w - 1, (h - 1) * w, (h - 1) * w + w - 1];
+              
+              corners.forEach(idx => {
+                  const r = data[idx * 4];
+                  const g = data[idx * 4 + 1];
+                  const b = data[idx * 4 + 2];
+                  const distSq = Math.pow(r - targetRGB.r, 2) + Math.pow(g - targetRGB.g, 2) + Math.pow(b - targetRGB.b, 2);
+                  
+                  if (distSq <= toleranceDistSq) {
+                      queue.push(idx);
+                      visited[idx] = 1;
+                  }
+              });
 
-        // Noise Check
-        if (noise > 0) {
-            const n = (Math.random() - 0.5) * (noise * 2);
-            r = Math.min(255, Math.max(0, r + n));
-            g = Math.min(255, Math.max(0, g + n));
-            b = Math.min(255, Math.max(0, b + n));
-        }
+              let head = 0;
+              while(head < queue.length) {
+                  const idx = queue[head++];
+                  data[idx * 4 + 3] = 0; // Transparent
 
-        // Transparency Check
-        if (removeBackground && targetRGB) {
-             const distSq = Math.pow(r - targetRGB.r, 2) + Math.pow(g - targetRGB.g, 2) + Math.pow(b - targetRGB.b, 2);
-             if (distSq <= toleranceDistSq) {
-                 data[i+3] = 0;
-             }
-        }
-        
-        data[i] = r;
-        data[i+1] = g;
-        data[i+2] = b;
+                  const x = idx % w;
+                  const y = Math.floor(idx / w);
+                  const neighbors = [{ nx: x, ny: y - 1 }, { nx: x, ny: y + 1 }, { nx: x - 1, ny: y }, { nx: x + 1, ny: y }];
+
+                  for (const n of neighbors) {
+                      if (n.nx >= 0 && n.nx < w && n.ny >= 0 && n.ny < h) {
+                          const nIdx = n.ny * w + n.nx;
+                          if (visited[nIdx] === 0) {
+                              const r = data[nIdx * 4];
+                              const g = data[nIdx * 4 + 1];
+                              const b = data[nIdx * 4 + 2];
+                              const distSq = Math.pow(r - targetRGB.r, 2) + Math.pow(g - targetRGB.g, 2) + Math.pow(b - targetRGB.b, 2);
+                              
+                              if (distSq <= toleranceDistSq) {
+                                  visited[nIdx] = 1;
+                                  queue.push(nIdx);
+                              }
+                          }
+                      }
+                  }
+              }
+          } else {
+              for (let i = 0; i < data.length; i += 4) {
+                  const r = data[i];
+                  const g = data[i+1];
+                  const b = data[i+2];
+                  const distSq = Math.pow(r - targetRGB.r, 2) + Math.pow(g - targetRGB.g, 2) + Math.pow(b - targetRGB.b, 2);
+                  if (distSq <= toleranceDistSq) {
+                      data[i+3] = 0;
+                  }
+              }
+          }
       }
 
-      // PASS 2: Outlines (Independent Inner and Outer)
+      // 4. OUTLINES (Applied BEFORE Quantization to ensure outline colors match palette)
       if (removeBackground && (outlineOuter || outlineInner)) {
           const outerRGB = hexToRgb(outlineOuterColor) || { r: 255, g: 255, b: 255 };
           const innerRGB = hexToRgb(outlineInnerColor) || { r: 0, g: 0, b: 0 };
           
-          // Create Alpha Map (1 = Opaque, 0 = Transparent)
+          // Snapshot opacity for distance check
           const alphaMap = new Uint8Array(w * h);
-          for (let i = 0; i < w * h; i++) {
-              alphaMap[i] = data[i*4 + 3] > 128 ? 1 : 0;
-          }
+          for (let i = 0; i < w * h; i++) alphaMap[i] = data[i*4 + 3] > 128 ? 1 : 0;
 
           const pixelsToPaintOuter = new Set<number>();
           const pixelsToPaintInner = new Set<number>();
@@ -141,28 +257,15 @@ const PreviewArea: React.FC<PreviewAreaProps> = ({ state, config, onDimensionsCh
                   const idx = y * w + x;
                   const isOpaque = alphaMap[idx] === 1;
 
-                  // Inner Stroke Logic: Pixels are Opaque, check if neighbors are transparent
                   if (isOpaque && outlineInner) {
                       const width = outlineInnerWidth;
                       let foundTransparent = false;
-                      
-                      // Search neighbor area
                       searchLoopInner:
                       for (let dy = -width; dy <= width; dy++) {
                           for (let dx = -width; dx <= width; dx++) {
-                              // Only check exact distance if needed for rounded corners, but for pixel art box check is usually fine.
-                              // Let's stick to box check for 'blocky' look or use euclidean for 'rounded'.
-                              // Blocky (Chebyshev distance) fits pixel art better usually.
                               const ny = y + dy;
                               const nx = x + dx;
-                              
-                              // If neighbor is out of bounds, it counts as transparent edge
-                              if (nx < 0 || nx >= w || ny < 0 || ny >= h) {
-                                  foundTransparent = true;
-                                  break searchLoopInner;
-                              }
-                              
-                              if (alphaMap[ny * w + nx] === 0) {
+                              if (nx < 0 || nx >= w || ny < 0 || ny >= h || alphaMap[ny * w + nx] === 0) {
                                   foundTransparent = true;
                                   break searchLoopInner;
                               }
@@ -171,22 +274,17 @@ const PreviewArea: React.FC<PreviewAreaProps> = ({ state, config, onDimensionsCh
                       if (foundTransparent) pixelsToPaintInner.add(idx);
                   }
 
-                  // Outer Stroke Logic: Pixels are Transparent, check if neighbors are opaque
                   if (!isOpaque && outlineOuter) {
                       const width = outlineOuterWidth;
                       let foundOpaque = false;
-                      
                       searchLoopOuter:
                       for (let dy = -width; dy <= width; dy++) {
                           for (let dx = -width; dx <= width; dx++) {
                               const ny = y + dy;
                               const nx = x + dx;
-                              
-                              if (nx >= 0 && nx < w && ny >= 0 && ny < h) {
-                                  if (alphaMap[ny * w + nx] === 1) {
-                                      foundOpaque = true;
-                                      break searchLoopOuter;
-                                  }
+                              if (nx >= 0 && nx < w && ny >= 0 && ny < h && alphaMap[ny * w + nx] === 1) {
+                                  foundOpaque = true;
+                                  break searchLoopOuter;
                               }
                           }
                       }
@@ -195,49 +293,64 @@ const PreviewArea: React.FC<PreviewAreaProps> = ({ state, config, onDimensionsCh
               }
           }
 
-          // Apply Inner Paint (Overwrite existing pixels)
           pixelsToPaintInner.forEach(idx => {
               const i = idx * 4;
-              data[i] = innerRGB.r;
-              data[i+1] = innerRGB.g;
-              data[i+2] = innerRGB.b;
-              data[i+3] = 255; 
+              data[i] = innerRGB.r; data[i+1] = innerRGB.g; data[i+2] = innerRGB.b; data[i+3] = 255; 
           });
 
-          // Apply Outer Paint (Fill transparent pixels)
           pixelsToPaintOuter.forEach(idx => {
               const i = idx * 4;
-              data[i] = outerRGB.r;
-              data[i+1] = outerRGB.g;
-              data[i+2] = outerRGB.b;
-              data[i+3] = 255;
+              data[i] = outerRGB.r; data[i+1] = outerRGB.g; data[i+2] = outerRGB.b; data[i+3] = 255;
           });
       }
 
-
-      // PASS 3: Palette Mapping
-      if (palette !== 'none' && PALETTES[palette] || reduceColors > 0) {
+      // 5. NOISE (Texture)
+      if (noise > 0) {
           for (let i = 0; i < data.length; i += 4) {
-              if (data[i+3] === 0) continue;
-
-              let r = data[i];
-              let g = data[i+1];
-              let b = data[i+2];
-
-              if (palette !== 'none' && PALETTES[palette]) {
-                const [nR, nG, nB] = getNearestColor(r, g, b, PALETTES[palette].colors);
-                data[i] = nR;
-                data[i+1] = nG;
-                data[i+2] = nB;
-              } else if (reduceColors > 0) {
-                const levels = reduceColors;
-                const step = 255 / (levels - 1);
-                data[i] = Math.round(r / step) * step;
-                data[i+1] = Math.round(g / step) * step;
-                data[i+2] = Math.round(b / step) * step;
-              }
+              if (data[i+3] === 0) continue; // Skip transparent
+              const n = (Math.random() - 0.5) * (noise * 2);
+              data[i] = Math.min(255, Math.max(0, data[i] + n));
+              data[i+1] = Math.min(255, Math.max(0, data[i+1] + n));
+              data[i+2] = Math.min(255, Math.max(0, data[i+2] + n));
           }
       }
+
+      // 6. COLOR QUANTIZATION / PALETTE MAPPING (Applied Last to enforce colors)
+      if (palette !== 'none' && PALETTES[palette]) {
+          // Map to specific palette
+          const pColors = PALETTES[palette].colors;
+          for (let i = 0; i < data.length; i += 4) {
+              if (data[i+3] === 0) continue;
+              const [nR, nG, nB] = getNearestColor(data[i], data[i+1], data[i+2], pColors);
+              data[i] = nR;
+              data[i+1] = nG;
+              data[i+2] = nB;
+          }
+      } else if (reduceColors > 0) {
+          // K-Means Clustering for custom color count
+          const centroids = quantizeColors(data, reduceColors);
+          for (let i = 0; i < data.length; i += 4) {
+              if (data[i+3] === 0) continue;
+              const [nR, nG, nB] = getNearestColor(data[i], data[i+1], data[i+2], centroids);
+              data[i] = nR;
+              data[i+1] = nG;
+              data[i+2] = nB;
+          }
+      }
+
+      // 7. ANALYZE PALETTE (Extract colors for UI)
+      const uniqueColors = new Set<string>();
+      for (let i = 0; i < data.length; i += 4) {
+          if (data[i+3] > 0) { // Only opaque
+              // Simple hex conversion
+              const r = data[i];
+              const g = data[i+1];
+              const b = data[i+2];
+              const hex = `#${((1 << 24) + (r << 16) + (g << 8) + b).toString(16).slice(1).toUpperCase()}`;
+              uniqueColors.add(hex);
+          }
+      }
+      setAnalyzedPalette(Array.from(uniqueColors));
       
       ctx.putImageData(imageData, 0, 0);
       setProcessedImageURL(canvas.toDataURL('image/png'));
@@ -245,9 +358,10 @@ const PreviewArea: React.FC<PreviewAreaProps> = ({ state, config, onDimensionsCh
 
   }, [
       resultImage, pixelSize, brightness, contrast, saturation, hue, noise, reduceColors, palette, 
-      removeBackground, transparentColor, transparencyTolerance, 
+      removeBackground, transparentColor, transparencyTolerance, contiguous,
       outlineOuter, outlineOuterColor, outlineOuterWidth,
-      outlineInner, outlineInnerColor, outlineInnerWidth
+      outlineInner, outlineInnerColor, outlineInnerWidth,
+      setAnalyzedPalette
   ]);
 
 
@@ -315,20 +429,17 @@ const PreviewArea: React.FC<PreviewAreaProps> = ({ state, config, onDimensionsCh
     const stepX = gridSize * pixelW;
     const stepY = gridSize * pixelH;
 
-    // Convert hex gridColor to rgba for opacity
     const rgb = hexToRgb(gridColor);
     ctx.strokeStyle = rgb ? `rgba(${rgb.r}, ${rgb.g}, ${rgb.b}, ${gridOpacity})` : `rgba(0, 240, 255, ${gridOpacity})`;
     ctx.lineWidth = 1;
     ctx.beginPath();
 
-    // Vertical Lines
     for (let x = stepX; x < wrapperStyle.width - 0.1; x += stepX) {
         const screenX = Math.floor(x) + 0.5;
         ctx.moveTo(screenX, 0);
         ctx.lineTo(screenX, wrapperStyle.height);
     }
 
-    // Horizontal Lines
     for (let y = stepY; y < wrapperStyle.height - 0.1; y += stepY) {
             const screenY = Math.floor(y) + 0.5;
             ctx.moveTo(0, screenY);
@@ -336,7 +447,6 @@ const PreviewArea: React.FC<PreviewAreaProps> = ({ state, config, onDimensionsCh
     }
 
     ctx.stroke();
-    
     ctx.strokeStyle = `rgba(255, 255, 255, 0.3)`;
     ctx.strokeRect(0, 0, wrapperStyle.width, wrapperStyle.height);
 
@@ -345,9 +455,7 @@ const PreviewArea: React.FC<PreviewAreaProps> = ({ state, config, onDimensionsCh
 
   const handleDownload = (hd: boolean) => {
     if (!processedImageURL) return;
-    
     const link = document.createElement('a');
-    
     if (hd) {
         const tempCanvas = document.createElement('canvas');
         const ctx = tempCanvas.getContext('2d');
@@ -372,7 +480,7 @@ const PreviewArea: React.FC<PreviewAreaProps> = ({ state, config, onDimensionsCh
   };
 
   return (
-    <div className="h-full bg-[#020205] relative flex flex-col">
+    <div className="h-full bg-app-bg relative flex flex-col transition-colors duration-300">
       <canvas ref={canvasRef} className="hidden" />
 
       {/* Toolbar */}
@@ -380,15 +488,22 @@ const PreviewArea: React.FC<PreviewAreaProps> = ({ state, config, onDimensionsCh
         {resultImage && !isLoading && (
           <div className="flex gap-2 animate-in fade-in slide-in-from-top-2">
              <button 
+                onClick={() => setTransform({x: 0, y: 0, scale: 1})}
+                className="p-2 bg-app-panel hover:bg-app-hover text-txt-main rounded border border-border-base transition-colors shadow-lg"
+                title="Reset View"
+            >
+                <ZoomIn className="w-3 h-3" />
+            </button>
+             <button 
                 onClick={() => handleDownload(false)}
-                className="px-3 py-2 bg-[#0a0918]/90 hover:bg-neon-blue hover:text-black text-[10px] text-white rounded border border-[#1f1d35] transition-colors shadow-lg font-mono uppercase tracking-wide"
+                className="px-3 py-2 bg-app-panel hover:bg-accent-main hover:text-accent-text text-[10px] text-txt-main rounded border border-border-base transition-colors shadow-lg font-mono uppercase tracking-wide"
             >
               <Download className="w-3 h-3 inline mr-2" />
               Native ({imageDimensions.w}px)
             </button>
             <button 
                 onClick={() => handleDownload(true)}
-                className="px-3 py-2 bg-[#0a0918]/90 hover:bg-neon-purple hover:text-white text-[10px] text-white rounded border border-[#1f1d35] transition-colors shadow-lg font-mono uppercase tracking-wide"
+                className="px-3 py-2 bg-app-panel hover:bg-accent-main hover:text-accent-text text-[10px] text-txt-main rounded border border-border-base transition-colors shadow-lg font-mono uppercase tracking-wide"
             >
               <Download className="w-3 h-3 inline mr-2" />
               HD (2K)
@@ -397,76 +512,93 @@ const PreviewArea: React.FC<PreviewAreaProps> = ({ state, config, onDimensionsCh
         )}
       </div>
 
-      {/* Main Display Area */}
+      {/* Main Display Area - Interactive */}
       <div 
         ref={mainContainerRef} 
-        className="flex-1 flex items-center justify-center overflow-hidden relative bg-[#020205]"
+        className={`flex-1 flex items-center justify-center overflow-hidden relative transition-colors duration-300 cursor-${isDragging ? 'grabbing' : 'grab'}`}
+        style={{ backgroundColor: previewBackgroundColor === 'transparent' ? '' : previewBackgroundColor }}
+        onWheel={handleWheel}
+        onMouseDown={handleMouseDown}
+        onMouseMove={handleMouseMove}
+        onMouseUp={handleMouseUp}
+        onMouseLeave={handleMouseUp}
       >
-        {/* Subtle Background */}
-        <div 
-            className="absolute inset-0 opacity-10 pointer-events-none"
-             style={{
-                backgroundImage: `radial-gradient(circle at center, #1f1d35 1px, transparent 1px)`,
-                backgroundSize: '20px 20px',
-            }}
-        />
+        {/* Checkerboard Background if transparent */}
+        {previewBackgroundColor === 'transparent' && (
+            <div className="absolute inset-0 checkerboard pointer-events-none" />
+        )}
 
         {isLoading ? (
-          <div className="text-center space-y-6 z-10">
-             <div className="relative">
-                <div className="w-24 h-24 border-4 border-[#1f1d35] border-t-neon-pink border-r-neon-blue rounded-full animate-spin mx-auto"></div>
-                <div className="absolute inset-0 flex items-center justify-center text-3xl animate-bounce">🍌</div>
-             </div>
-             <div className="space-y-1">
-                <p className="text-neon-blue font-pixel text-xs tracking-widest uppercase animate-pulse">Synthesizing</p>
+          <div className="absolute inset-0 flex items-center justify-center z-20 pointer-events-none">
+             <div className="bg-app-panel/90 border border-border-base shadow-2xl rounded-2xl p-8 flex flex-col items-center backdrop-blur-sm animate-in zoom-in-90 duration-300">
+                 <div className="relative mb-4">
+                    <div className="w-20 h-20 border-4 border-border-base border-t-accent-main border-r-accent-main rounded-full animate-spin mx-auto"></div>
+                    <div className="absolute inset-0 flex items-center justify-center text-3xl animate-bounce">🍌</div>
+                 </div>
+                 <p className="text-accent-main font-pixel text-xs tracking-widest uppercase animate-pulse">Synthesizing</p>
+                 <p className="text-[10px] text-txt-muted mt-2 font-mono">Running Gemini Nano Banana...</p>
              </div>
           </div>
         ) : error ? (
             <div className="max-w-md p-6 bg-red-900/20 border border-red-500/50 rounded-lg text-center z-10 shadow-[0_0_30px_rgba(255,0,0,0.2)]">
                 <p className="text-red-400 font-bold mb-2 font-pixel text-xs">SYSTEM FAILURE</p>
-                <p className="text-xs text-gray-400 font-mono">{error}</p>
+                <p className="text-xs text-txt-muted font-mono">{error}</p>
             </div>
         ) : resultImage ? (
+            // WRAPPER - This is moved by pan/zoom
             <div 
-                ref={wrapperRef}
-                className="relative z-10 shadow-[0_0_50px_rgba(0,0,0,0.5)] group select-none"
                 style={{
-                    width: wrapperStyle.width,
-                    height: wrapperStyle.height
+                    transform: `translate(${transform.x}px, ${transform.y}px) scale(${transform.scale})`,
+                    transformOrigin: 'center',
+                    transition: isDragging ? 'none' : 'transform 0.1s ease-out',
+                    willChange: 'transform'
                 }}
             >
-                {/* Grid Canvas Overlay */}
-                <canvas 
-                    ref={gridCanvasRef}
-                    className="absolute inset-0 z-20 pointer-events-none w-full h-full"
-                />
+                <div 
+                    ref={wrapperRef}
+                    className="relative z-10 shadow-[0_0_50px_rgba(0,0,0,0.5)] group select-none"
+                    style={{
+                        width: wrapperStyle.width,
+                        height: wrapperStyle.height
+                    }}
+                >
+                    {/* Grid Canvas Overlay */}
+                    <canvas 
+                        ref={gridCanvasRef}
+                        className="absolute inset-0 z-20 pointer-events-none w-full h-full"
+                    />
 
-                {/* Processed Image */}
-                <img
-                src={processedImageURL || resultImage}
-                alt="Generated Pixel Art"
-                className="w-full h-full object-contain block bg-transparent"
-                style={{ imageRendering: 'pixelated' }}
-                />
-          </div>
+                    {/* Processed Image */}
+                    <img
+                    src={processedImageURL || resultImage}
+                    alt="Generated Pixel Art"
+                    className="w-full h-full object-contain block bg-transparent pointer-events-none"
+                    style={{ imageRendering: 'pixelated' }}
+                    />
+                </div>
+            </div>
         ) : (
-          <div className="text-center opacity-20 z-10 select-none group">
-            <Grid className="w-24 h-24 mx-auto mb-4 text-[#1f1d35] group-hover:text-neon-purple transition-colors duration-500" />
-            <h2 className="text-2xl font-bold text-[#1f1d35] font-pixel group-hover:text-neon-blue transition-colors">NO SIGNAL</h2>
-            <p className="text-gray-700 mt-4 font-mono text-xs uppercase tracking-widest">Waiting for input stream...</p>
+          <div className="text-center opacity-20 z-10 select-none group pointer-events-none">
+            <Grid className="w-24 h-24 mx-auto mb-4 text-txt-dim group-hover:text-accent-main transition-colors duration-500" />
+            <h2 className="text-2xl font-bold text-txt-dim font-pixel group-hover:text-accent-main transition-colors">NO SIGNAL</h2>
+            <p className="text-txt-muted mt-4 font-mono text-xs uppercase tracking-widest">Waiting for input stream...</p>
           </div>
         )}
       </div>
 
       {/* Status Bar */}
       {processedImageURL && !isLoading && (
-         <div className="bg-[#050410] border-t border-[#1f1d35] px-4 py-3 flex justify-between items-center text-[10px] text-gray-500 font-mono select-none z-30 relative">
+         <div className="bg-app-panel border-t border-border-base px-4 py-3 flex justify-between items-center text-[10px] text-txt-dim font-mono select-none z-30 relative transition-colors duration-300">
             <div className="flex items-center gap-4">
-                <span className="text-neon-blue">RES: {imageDimensions.w}×{imageDimensions.h}</span>
-                <span className="text-neon-pink">SCALE: 1/{pixelSize}</span>
-                {palette !== 'none' && <span className="text-neon-green">PALETTE: {PALETTES[palette].label.toUpperCase()}</span>}
+                <span className="text-accent-main">RES: {imageDimensions.w}×{imageDimensions.h}</span>
+                <span className="text-txt-muted">SCALE: 1/{pixelSize}</span>
+                <span className="text-txt-dim">ZOOM: {Math.round(transform.scale * 100)}%</span>
+                {palette !== 'none' && <span className="text-accent-main">PALETTE: {PALETTES[palette].label.toUpperCase()}</span>}
             </div>
-            <span className="opacity-50">GEMINI 2.5 FLASH IMAGE</span>
+            <div className="flex items-center gap-2">
+                <Move className="w-3 h-3" />
+                <span>PAN & ZOOM ENABLED</span>
+            </div>
          </div>
       )}
     </div>
