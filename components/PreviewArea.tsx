@@ -12,8 +12,8 @@ interface PreviewAreaProps {
   setAnalyzedPalette: (colors: string[]) => void;
   activeTool: ActiveTool;
   onColorPick: (color: string) => void;
-  activeControlTab: 'generate' | 'process' | 'animate';
-  setActiveControlTab: (tab: 'generate' | 'process' | 'animate') => void;
+  activeControlTab: 'generate' | 'process' | 'animate' | 'history';
+  setActiveControlTab: (tab: 'generate' | 'process' | 'animate' | 'history') => void;
 }
 
 const getNearestColor = (r: number, g: number, b: number, palette: number[][]) => {
@@ -192,24 +192,29 @@ const PreviewArea: React.FC<PreviewAreaProps> = ({ state, config, onDimensionsCh
   const handleMouseDown = (e: React.MouseEvent) => {
       if (!resultImage) return;
       
+      // Check if clicking on the image area
       if (activeTool !== 'move' && canvasRef.current && wrapperRef.current) {
           const rect = wrapperRef.current.getBoundingClientRect();
-          const scaleX = canvasRef.current.width / rect.width;
-          const scaleY = canvasRef.current.height / rect.height;
-          const x = Math.floor((e.clientX - rect.left) * scaleX);
-          const y = Math.floor((e.clientY - rect.top) * scaleY);
-          
-          const ctx = canvasRef.current.getContext('2d');
-          if (!ctx) return;
+          // Check if click is inside the image wrapper
+          if (e.clientX >= rect.left && e.clientX <= rect.right && e.clientY >= rect.top && e.clientY <= rect.bottom) {
+              const scaleX = canvasRef.current.width / rect.width;
+              const scaleY = canvasRef.current.height / rect.height;
+              const x = Math.floor((e.clientX - rect.left) * scaleX);
+              const y = Math.floor((e.clientY - rect.top) * scaleY);
+              
+              const ctx = canvasRef.current.getContext('2d');
+              if (!ctx) return;
 
-          if (activeTool === 'picker') {
-              const p = ctx.getImageData(x, y, 1, 1).data;
-              const hex = rgbToHex(p[0], p[1], p[2]);
-              onColorPick(hex);
-          } else if (activeTool === 'wand') {
-              handleWandTool(x, y, e.shiftKey, ctx, canvasRef.current.width, canvasRef.current.height);
+              if (activeTool === 'picker') {
+                  const p = ctx.getImageData(x, y, 1, 1).data;
+                  const hex = rgbToHex(p[0], p[1], p[2]);
+                  onColorPick(hex);
+                  return; // Don't drag
+              } else if (activeTool === 'wand') {
+                  handleWandTool(x, y, e.shiftKey, ctx, canvasRef.current.width, canvasRef.current.height);
+                  return; // Don't drag
+              }
           }
-          return;
       }
 
       setIsDragging(true);
@@ -853,7 +858,7 @@ const PreviewArea: React.FC<PreviewAreaProps> = ({ state, config, onDimensionsCh
                     <img
                         src={isCompareMode ? resultImage : (processedImageURL || resultImage)}
                         alt="Generated Pixel Art"
-                        className="w-full h-full object-contain block bg-transparent pointer-events-none image-pixelated"
+                        className="w-full h-full object-contain block bg-transparent pointer-events-auto image-pixelated"
                     />
                 </div>
             </div>

@@ -1,7 +1,7 @@
 
 import React, { useRef, useState, useEffect } from 'react';
-import { PixelConfig, PixelStyle, OutputType, ActiveTool } from '../types';
-import { Wand2, Upload, X, Grid3X3, RefreshCcw, Monitor, Eraser, Sliders, LayoutGrid, Sparkles, ChevronDown, Check, RotateCcw, PaintBucket, BoxSelect, Ban, Eye, SmilePlus, Pipette, Play, AlignCenter, Hand, Trash2, Spline } from 'lucide-react';
+import { PixelConfig, PixelStyle, OutputType, ActiveTool, HistoryItem } from '../types';
+import { Wand2, Upload, X, Grid3X3, RefreshCcw, Monitor, Eraser, Sliders, LayoutGrid, Sparkles, ChevronDown, Check, RotateCcw, PaintBucket, BoxSelect, Ban, Eye, SmilePlus, Pipette, Play, AlignCenter, Hand, Trash2, Spline, History } from 'lucide-react';
 import { PALETTES } from '../constants';
 
 interface ControlPanelProps {
@@ -16,8 +16,10 @@ interface ControlPanelProps {
   analyzedPalette: string[];
   activeTool: ActiveTool;
   setActiveTool: (t: ActiveTool) => void;
-  activeTab: 'generate' | 'process' | 'animate';
-  setActiveTab: (t: 'generate' | 'process' | 'animate') => void;
+  activeTab: 'generate' | 'process' | 'animate' | 'history';
+  setActiveTab: (t: 'generate' | 'process' | 'animate' | 'history') => void;
+  history: HistoryItem[];
+  onRestoreHistory: (item: HistoryItem) => void;
 }
 
 const QUICK_PROMPTS = [
@@ -102,7 +104,9 @@ const ControlPanel: React.FC<ControlPanelProps> = ({
   activeTool,
   setActiveTool,
   activeTab,
-  setActiveTab
+  setActiveTab,
+  history,
+  onRestoreHistory
 }) => {
   const fileInputRef = useRef<HTMLInputElement>(null);
   const [hoverPrompt, setHoverPrompt] = useState<string | null>(null);
@@ -249,7 +253,7 @@ const ControlPanel: React.FC<ControlPanelProps> = ({
             <div className="absolute inset-0 bg-accent-main/10 border-b-2 border-accent-main" />
           )}
           <Wand2 className={`w-3 h-3 relative z-10 ${activeTab === 'generate' ? 'text-accent-main' : ''}`} /> 
-          <span className="relative z-10">Generate</span>
+          <span className="relative z-10 hidden lg:inline">Generate</span>
         </button>
         <button 
           onClick={() => setActiveTab('process')}
@@ -259,7 +263,7 @@ const ControlPanel: React.FC<ControlPanelProps> = ({
             <div className="absolute inset-0 bg-accent-main/10 border-b-2 border-accent-main" />
           )}
           <Sliders className={`w-3 h-3 relative z-10 ${activeTab === 'process' ? 'text-accent-main' : ''}`} /> 
-          <span className="relative z-10">Edit</span>
+          <span className="relative z-10 hidden lg:inline">Edit</span>
         </button>
         <button 
           disabled={config.sheetConfig.columns <= 1}
@@ -270,7 +274,17 @@ const ControlPanel: React.FC<ControlPanelProps> = ({
             <div className="absolute inset-0 bg-accent-main/10 border-b-2 border-accent-main" />
           )}
           <Play className={`w-3 h-3 relative z-10 ${activeTab === 'animate' ? 'text-accent-main' : ''}`} /> 
-          <span className="relative z-10">Animate</span>
+          <span className="relative z-10 hidden lg:inline">Animate</span>
+        </button>
+        <button 
+          onClick={() => setActiveTab('history')}
+          className={`flex-1 py-3 text-[11px] font-bold uppercase tracking-widest flex items-center justify-center gap-2 transition-all duration-300 relative overflow-hidden ${activeTab === 'history' ? 'text-txt-main' : 'text-txt-muted hover:text-txt-main'}`}
+        >
+           {activeTab === 'history' && (
+            <div className="absolute inset-0 bg-accent-main/10 border-b-2 border-accent-main" />
+          )}
+          <History className={`w-3 h-3 relative z-10 ${activeTab === 'history' ? 'text-accent-main' : ''}`} /> 
+          <span className="relative z-10 hidden lg:inline">History</span>
         </button>
       </div>
 
@@ -855,6 +869,33 @@ const ControlPanel: React.FC<ControlPanelProps> = ({
                      </div>
                      <p className="text-[9px] text-txt-dim">Automatically detects sprite content and centers it in each animation frame. Fixes jittery AI results.</p>
                  </div>
+             </div>
+        )}
+
+        {/* HISTORY TAB */}
+        {activeTab === 'history' && (
+             <div className="space-y-4 animate-in fade-in slide-in-from-right-4 duration-300">
+                <div className="bg-app-element p-3 rounded-lg border border-border-base">
+                     <p className="text-xs text-txt-muted mb-2">Recent generations are saved locally. Click to restore.</p>
+                </div>
+                <div className="grid grid-cols-2 gap-3">
+                    {history.length === 0 && <p className="text-xs text-txt-dim col-span-2 text-center py-8">No history yet.</p>}
+                    {history.map((item) => (
+                        <button 
+                            key={item.id}
+                            onClick={() => onRestoreHistory(item)}
+                            className="group relative aspect-square bg-app-bg border border-border-base rounded-lg overflow-hidden hover:border-accent-main transition-all"
+                        >
+                            <img src={item.resultImage} alt={item.prompt} className="w-full h-full object-contain image-pixelated bg-app-bg/50" />
+                            <div className="absolute inset-0 bg-black/60 opacity-0 group-hover:opacity-100 flex items-center justify-center transition-opacity">
+                                <RotateCcw className="w-6 h-6 text-accent-main" />
+                            </div>
+                            <div className="absolute bottom-0 left-0 right-0 p-1 bg-black/80 text-[9px] text-white truncate">
+                                {item.prompt}
+                            </div>
+                        </button>
+                    ))}
+                </div>
              </div>
         )}
       </div>

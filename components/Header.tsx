@@ -1,11 +1,12 @@
 
 import React, { useState, useRef, useEffect } from 'react';
-import { Palette, Moon, Sun, Terminal, Sparkles, ChevronDown, Zap, Coffee, HelpCircle, X } from 'lucide-react';
+import { Palette, Moon, Sun, Terminal, Sparkles, ChevronDown, Zap, Coffee, HelpCircle, X, Trash2 } from 'lucide-react';
 import { Theme } from '../types';
 
 interface HeaderProps {
   theme: Theme;
   setTheme: (t: Theme) => void;
+  clearHistory: () => void;
 }
 
 const THEMES: { id: Theme; label: string; icon: React.ElementType }[] = [
@@ -17,7 +18,7 @@ const THEMES: { id: Theme; label: string; icon: React.ElementType }[] = [
   { id: 'retro', label: 'Retro', icon: Coffee },
 ];
 
-const Header: React.FC<HeaderProps> = ({ theme, setTheme }) => {
+const Header: React.FC<HeaderProps> = ({ theme, setTheme, clearHistory }) => {
   const [isThemeOpen, setIsThemeOpen] = useState(false);
   const [isHelpOpen, setIsHelpOpen] = useState(false);
   const [dontShowAgain, setDontShowAgain] = useState(false);
@@ -121,12 +122,14 @@ const Header: React.FC<HeaderProps> = ({ theme, setTheme }) => {
                               <li>• Live Palette Analysis</li>
                               <li>• Pixel-Perfect Outlines</li>
                               <li>• Auto-Centering (AABB)</li>
+                              <li>• History & Restoration</li>
                           </ul>
                       </section>
                       <section>
                           <h3 className="font-bold text-accent-main mb-2 uppercase font-mono flex items-center gap-2"><Terminal className="w-4 h-4"/> Controls</h3>
                           <div className="space-y-2 text-xs text-txt-muted bg-app-element p-3 rounded border border-border-base">
                               <p><strong className="text-txt-main">Pan & Zoom:</strong> Scroll to zoom. Click & drag to pan the canvas.</p>
+                              <p><strong className="text-txt-main">Right Click:</strong> Save Image As... directly from the canvas.</p>
                               <p><strong className="text-txt-main">Magic Wand:</strong> In Chroma Key mode, click to select background areas. Hold Shift to add.</p>
                               <p><strong className="text-txt-main">Eyedropper:</strong> Click the Pipette icon to pick transparency colors directly.</p>
                               <p><strong className="text-txt-main">Animation:</strong> Click the floating mini-player to open the full Animation Studio.</p>
@@ -140,6 +143,17 @@ const Header: React.FC<HeaderProps> = ({ theme, setTheme }) => {
                               <li>Enable <strong>"Show Cut Lines"</strong> in the Animate tab to see sprite boundaries.</li>
                           </ul>
                       </section>
+                      <div className="mt-4 pt-4 border-t border-border-base/30 flex items-center justify-between">
+                           <div className="text-xs text-txt-dim font-mono">
+                               Made with 🍌 by <span className="text-accent-main">Tront & d74g0n</span>
+                           </div>
+                           <button 
+                                onClick={() => { if(confirm("Clear local history?")) { clearHistory(); } }}
+                                className="text-[10px] text-red-400 hover:text-red-300 flex items-center gap-1"
+                            >
+                               <Trash2 className="w-3 h-3" /> Clear History
+                           </button>
+                      </div>
                   </div>
                   <div className="p-4 border-t border-border-base bg-app-element/50 flex justify-between items-center">
                       <label className="flex items-center gap-2 text-xs text-txt-muted cursor-pointer select-none hover:text-txt-main">

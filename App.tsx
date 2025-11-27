@@ -1,9 +1,9 @@
 
-import React, { useState, useCallback } from 'react';
+import React, { useState, useCallback, useEffect } from 'react';
 import Header from './components/Header';
 import ControlPanel from './components/ControlPanel';
 import PreviewArea from './components/PreviewArea';
-import { GenerationState, PixelConfig, PixelStyle, OutputType, Theme, ActiveTool } from './types';
+import { GenerationState, PixelConfig, PixelStyle, OutputType, Theme, ActiveTool, HistoryItem } from './types';
 import { generatePixelArt } from './services/gemini';
 
 const App: React.FC = () => {
@@ -11,7 +11,8 @@ const App: React.FC = () => {
   const [previewBackgroundColor, setPreviewBackgroundColor] = useState<string>('transparent');
   const [analyzedPalette, setAnalyzedPalette] = useState<string[]>([]);
   const [activeTool, setActiveTool] = useState<ActiveTool>('move');
-  const [activeControlTab, setActiveControlTab] = useState<'generate' | 'process' | 'animate'>('generate');
+  const [activeControlTab, setActiveControlTab] = useState<'generate' | 'process' | 'animate' | 'history'>('generate');
+  const [history, setHistory] = useState<HistoryItem[]>([]);
 
   const [config, setConfig] = useState<PixelConfig>({
     prompt: '',
@@ -68,6 +69,53 @@ const App: React.FC = () => {
 
   const [currentDimensions, setCurrentDimensions] = useState<{w: number, h: number} | null>(null);
 
+  // Load History on Mount
+  useEffect(() => {
+    const saved = localStorage.getItem('pixel-banana-history');
+    if (saved) {
+      try {
+        setHistory(JSON.parse(saved));
+      } catch (e) {
+        console.error("Failed to load history", e);
+      }
+    }
+  }, []);
+
+  const saveToHistory = (resultImage: string, currentConfig: PixelConfig) => {
+    const newItem: HistoryItem = {
+      id: Date.now().toString(),
+      timestamp: Date.now(),
+      prompt: currentConfig.prompt,
+      resultImage,
+      config: JSON.parse(JSON.stringify(currentConfig)) // Deep copy
+    };
+
+    setHistory(prev => {
+      const newHistory = [newItem, ...prev].slice(0, 10); // Keep last 10
+      try {
+        localStorage.setItem('pixel-banana-history', JSON.stringify(newHistory));
+      } catch (e) {
+        console.warn("LocalStorage quota exceeded, could not save history");
+      }
+      return newHistory;
+    });
+  };
+
+  const clearHistory = () => {
+      setHistory([]);
+      localStorage.removeItem('pixel-banana-history');
+  };
+
+  const restoreHistoryItem = (item: HistoryItem) => {
+      setConfig(item.config);
+      setGenerationState({
+          isLoading: false,
+          resultImage: item.resultImage,
+          error: null
+      });
+      setActiveControlTab('generate');
+  };
+
   const handleGenerate = useCallback(async () => {
     if (!config.prompt) return;
 
@@ -89,6 +137,9 @@ const App: React.FC = () => {
         resultImage: result,
         error: null,
       });
+
+      saveToHistory(result, config);
+
     } catch (err: any) {
       setGenerationState(prev => ({
         ...prev,
@@ -108,11 +159,11 @@ const App: React.FC = () => {
 
   return (
     <div className="flex flex-col h-screen bg-app-bg text-txt-main overflow-hidden font-sans transition-colors duration-300" data-theme={theme}>
-      <Header theme={theme} setTheme={setTheme} />
+      <Header theme={theme} setTheme={setTheme} clearHistory={clearHistory} />
       
       <main className="flex-1 flex flex-col md:flex-row overflow-hidden relative">
         {/* Left Panel: Controls - Widened for manual inputs */}
-        <div className="w-full md:w-[420px] z-20 flex-shrink-0 bg-app-panel h-full overflow-hidden shadow-xl border-r border-border-base transition-colors duration-300">
+        <div className="w-full md:w-[360px] z-20 flex-shrink-0 bg-app-panel h-full overflow-hidden shadow-xl border-r border-border-base transition-colors duration-300">
           <ControlPanel
             config={config}
             setConfig={setConfig}
@@ -127,6 +178,8 @@ const App: React.FC = () => {
             setActiveTool={setActiveTool}
             activeTab={activeControlTab}
             setActiveTab={setActiveControlTab}
+            history={history}
+            onRestoreHistory={restoreHistoryItem}
           />
         </div>
 

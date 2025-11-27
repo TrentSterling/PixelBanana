@@ -63,14 +63,14 @@ export interface PostProcessConfig {
   outlineOuter: boolean;
   outlineOuterColor: string;
   outlineOuterWidth: number; // 1-4 pixels
-  outlineOuterOpacity: number; // 0-1
+  outlineOuterOpacity: number; // 0-1 (deprecated, functionally forced to 1 for solid outlines)
   outlineMode: 'outer' | 'inner' | 'both'; // deprecated
 
   // Inner Outline
   outlineInner: boolean;
   outlineInnerColor: string;
   outlineInnerWidth: number; // 1-4 pixels
-  outlineInnerOpacity: number; // 0-1
+  outlineInnerOpacity: number; // 0-1 (deprecated, functionally forced to 1 for solid outlines)
 
   // Animation
   autoCenter: boolean; // AABB Centering
@@ -87,4 +87,12 @@ export interface PixelConfig {
   postProcess: PostProcessConfig;
   generatorBackground: string; // The solid background color requested from AI, or 'none'
   animationSpeed: number; // FPS for preview (deprecated, moved to postProcess or kept here for persistence? keeping here for now)
+}
+
+export interface HistoryItem {
+  id: string;
+  timestamp: number;
+  prompt: string;
+  resultImage: string;
+  config: PixelConfig;
 }
