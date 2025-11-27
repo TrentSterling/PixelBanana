@@ -3,13 +3,15 @@ import React, { useState, useCallback } from 'react';
 import Header from './components/Header';
 import ControlPanel from './components/ControlPanel';
 import PreviewArea from './components/PreviewArea';
-import { GenerationState, PixelConfig, PixelStyle, OutputType, Theme } from './types';
+import { GenerationState, PixelConfig, PixelStyle, OutputType, Theme, ActiveTool } from './types';
 import { generatePixelArt } from './services/gemini';
 
 const App: React.FC = () => {
   const [theme, setTheme] = useState<Theme>('midnight');
   const [previewBackgroundColor, setPreviewBackgroundColor] = useState<string>('transparent');
   const [analyzedPalette, setAnalyzedPalette] = useState<string[]>([]);
+  const [activeTool, setActiveTool] = useState<ActiveTool>('move');
+  const [activeControlTab, setActiveControlTab] = useState<'generate' | 'process' | 'animate'>('generate');
 
   const [config, setConfig] = useState<PixelConfig>({
     prompt: '',
@@ -17,7 +19,8 @@ const App: React.FC = () => {
     outputType: OutputType.SINGLE,
     aspectRatio: '1:1',
     referenceImage: null,
-    generatorBackground: '#FF00FF', // Magenta default for classic sprite transparency
+    generatorBackground: '#FF00FF', // Magenta default
+    animationSpeed: 8,
     sheetConfig: {
       columns: 4,
       rows: 1,
@@ -33,21 +36,27 @@ const App: React.FC = () => {
       palette: 'none',
       reduceColors: 0, 
       showGrid: false,
+      showSheetGrid: true,
       gridSize: 1, 
       gridOpacity: 0.5,
       gridColor: '#00f0ff',
-      removeBackground: false,
+      removeBackground: true,
       contiguous: true, // Smart removal on by default
       transparentColor: '#FF00FF', 
-      transparencyTolerance: 10,
+      transparencyTolerance: 20, // Higher tolerance default
       
       outlineOuter: false,
       outlineOuterColor: '#FFFFFF',
       outlineOuterWidth: 1,
+      outlineOuterOpacity: 1,
       outlineInner: false,
       outlineInnerColor: '#000000',
       outlineInnerWidth: 1,
-      outlineMode: 'both'
+      outlineInnerOpacity: 1,
+      outlineMode: 'both',
+
+      autoCenter: true, // AABB Centering on by default
+      animationSpeed: 8
     }
   });
 
@@ -89,13 +98,21 @@ const App: React.FC = () => {
     }
   }, [config]);
 
+  const handleColorPick = (color: string) => {
+      setConfig(prev => ({
+          ...prev,
+          postProcess: { ...prev.postProcess, transparentColor: color }
+      }));
+      setActiveTool('move'); 
+  };
+
   return (
     <div className="flex flex-col h-screen bg-app-bg text-txt-main overflow-hidden font-sans transition-colors duration-300" data-theme={theme}>
       <Header theme={theme} setTheme={setTheme} />
       
       <main className="flex-1 flex flex-col md:flex-row overflow-hidden relative">
-        {/* Left Panel: Controls */}
-        <div className="w-full md:w-[380px] z-20 flex-shrink-0 bg-app-panel h-full overflow-hidden shadow-xl border-r border-border-base transition-colors duration-300">
+        {/* Left Panel: Controls - Widened for manual inputs */}
+        <div className="w-full md:w-[420px] z-20 flex-shrink-0 bg-app-panel h-full overflow-hidden shadow-xl border-r border-border-base transition-colors duration-300">
           <ControlPanel
             config={config}
             setConfig={setConfig}
@@ -106,6 +123,10 @@ const App: React.FC = () => {
             previewBackgroundColor={previewBackgroundColor}
             setPreviewBackgroundColor={setPreviewBackgroundColor}
             analyzedPalette={analyzedPalette}
+            activeTool={activeTool}
+            setActiveTool={setActiveTool}
+            activeTab={activeControlTab}
+            setActiveTab={setActiveControlTab}
           />
         </div>
 
@@ -117,6 +138,10 @@ const App: React.FC = () => {
             onDimensionsChange={setCurrentDimensions}
             previewBackgroundColor={previewBackgroundColor}
             setAnalyzedPalette={setAnalyzedPalette}
+            activeTool={activeTool}
+            onColorPick={handleColorPick}
+            activeControlTab={activeControlTab}
+            setActiveControlTab={setActiveControlTab}
           />
         </div>
       </main>

@@ -29,11 +29,12 @@ export const generatePixelArt = async (
   Style: ${style}.
   Type: ${outputType}.
   
-  CRITICAL DIMENSION INSTRUCTIONS:
+  CRITICAL INSTRUCTIONS:
+  - DO NOT DRAW GRID LINES, CELL BORDERS, OR FRAMES.
+  - PURE PIXELS ONLY. NO UI ELEMENTS.
   - The subject MUST FILL the entire canvas.
   - MINIMAL padding. CROP TIGHTLY to the subject.
   - The subject should occupy at least 90% of the image dimensions.
-  - Do not leave large empty areas around the subject.
   
   Important Guidelines:
   - Ensure crisp edges and distinct pixels appropriate for the requested bit-depth.
@@ -49,9 +50,11 @@ export const generatePixelArt = async (
 
   if (outputType === OutputType.SHEET) {
     fullPrompt += `
-    - Create a Sprite Sheet with exactly ${sheetConfig.columns} columns and ${sheetConfig.rows} rows.
+    - Create a Sprite Sheet with EXACTLY ${sheetConfig.columns} columns and ${sheetConfig.rows} rows.
+    - All sprites must be EQUAL SIZE and aligned to a strict invisible grid.
+    - DO NOT DRAW VISIBLE GRID LINES.
     - Maintain consistent spacing of approximately ${sheetConfig.padding}px between sprites.
-    - Ensure all sprites in the grid are aligned.
+    - Ensure all sprites in the grid are aligned horizontally and vertically.
     `;
   } else if (outputType === OutputType.TILE) {
     fullPrompt += `

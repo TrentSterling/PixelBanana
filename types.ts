@@ -6,6 +6,7 @@ export interface GenerationState {
 }
 
 export type Theme = 'cosmic' | 'midnight' | 'paper' | 'terminal' | 'synthwave' | 'retro';
+export type ActiveTool = 'move' | 'picker' | 'wand';
 
 export enum PixelStyle {
   SNES = 'SNES (16-bit)',
@@ -47,6 +48,7 @@ export interface PostProcessConfig {
   palette: string; // 'none', 'pico8', 'gameboy', etc.
   reduceColors: number; // 0 = off, > 0 = max colors (2-256)
   showGrid: boolean;
+  showSheetGrid: boolean; // Toggle for cyan cut lines
   gridSize: number; // Size of grid cells in "art pixels" (e.g. 32 for 32x32 tiles)
   gridOpacity: number; // 0.1 to 1.0
   gridColor: string;
@@ -61,12 +63,18 @@ export interface PostProcessConfig {
   outlineOuter: boolean;
   outlineOuterColor: string;
   outlineOuterWidth: number; // 1-4 pixels
-  outlineMode: 'outer' | 'inner' | 'both'; // deprecated but kept for types compatibility
+  outlineOuterOpacity: number; // 0-1
+  outlineMode: 'outer' | 'inner' | 'both'; // deprecated
 
   // Inner Outline
   outlineInner: boolean;
   outlineInnerColor: string;
   outlineInnerWidth: number; // 1-4 pixels
+  outlineInnerOpacity: number; // 0-1
+
+  // Animation
+  autoCenter: boolean; // AABB Centering
+  animationSpeed: number; // FPS for preview
 }
 
 export interface PixelConfig {
@@ -78,4 +86,5 @@ export interface PixelConfig {
   sheetConfig: SpriteSheetConfig;
   postProcess: PostProcessConfig;
   generatorBackground: string; // The solid background color requested from AI, or 'none'
+  animationSpeed: number; // FPS for preview (deprecated, moved to postProcess or kept here for persistence? keeping here for now)
 }
